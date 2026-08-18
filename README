@@ -1,0 +1,22 @@
+## Repo Description
+A register-level bare-metal full-duplex UART driver implemented on the STM32F303RE (ARM Cortex-M4) transmitting and receiving serial data over the onboard ST-LINK V2-1 Virtual COM Port (VCP) at 9600 baud.
+
+## Hardware Setup & Pinout
+| Signal    | STM32F303RE Pin | Alternate Function | Target / Connection | Description              |
+
+| USART2_TX |     PA2         |       AF7          | ST-LINK VCP (USB)   | Transmit Data Line       |
+| USART2_RX |     PA3         |       AF7          | ST-LINK VCP (USB)   | Receive Data Line        |
+| GND       |     GND         |        —           | Host PC Ground      | Common Reference via USB |
+
+## Features & Implementation Details
+- Pure Register Access: Configured directly via memory-mapped peripheral registers without vendor HAL or standard peripheral libraries.
+- Pin Multiplexing: Routed `PA2` and `PA3` using `AFRL` (Alternate Function Low) bitfields with `AF7` mapping, configured in Push-Pull mode with internal pull-ups enabled to maintain bus idle high state.
+- Baud Rate Generator: Calculated and loaded `USART2_BRR` for 115200 bps operation using standard 16x oversampling on the 8 MHz internal HSI clock (fclk = 8MHz).
+- Frame Format: Standard 8N1 framing (8 data bits, no parity bit, 1 stop bit).
+- Polling State Management: Managed transmission sequencing and reception synchronization via direct polling on `USART_ISR` status flags (`TXE`, `TC`, and `RXNE`).
+- Full-Duplex Verification: Validated bi-directional data flow using an interactive serial echo loopback routine.
+
+## Challenges Solved
+- Resolved 0-indexed 4-bit nibble shifting logic across `AFR[0]` to safely clear and assign pin multiplexing for `PA2` (`[11:8]`) and `PA3` (`[15:12]`).
+- Implemented arithmetic rounding for the integer Baud Rate Register (`BRR = (f_CK + baud/2) / baud`) to maintain timing error within standard serial margins.
+- Handled shift register synchronization by servicing `USART_TDR` on `TXE` and clearing `RXNE` upon reading `USART_RDR`.
